@@ -1,0 +1,73 @@
+get_tree:
+  name: "Récupérer l'arbre complet"
+  description: "Retourne tout le contenu du JSON"
+
+get_value:
+  name: "Lire une valeur"
+  description: "Lit une valeur à un chemin donné"
+  fields:
+    level1:
+      name: "Level 1"
+      required: false
+      selector:
+        text:
+    level2:
+      name: "Level 2"
+      required: false
+      selector:
+        text:
+    level3:
+      name: "Level 3"
+      required: false
+      selector:
+        text:
+
+set_value:
+  name: "Écrire une valeur"
+  description: "Écrit une valeur à un chemin donné"
+  fields:
+    level1:
+      name: "Level 1"
+      required: false
+      selector:
+        text:
+    level2:
+      name: "Level 2"
+      required: false
+      selector:
+        text:
+    level3:
+      name: "Level 3"
+      required: false
+      selector:
+        text:
+    field:
+      name: "Champ (index/contenue)"
+      required: false
+      selector:
+        text:
+    value:
+      name: "Valeur"
+      required: false
+      selector:
+        text:
+
+select_indice:
+  name: "Sélectionner un indice"
+  description: "Sélectionne un indice, met à jour input_text.hints_selected_indice_index et retourne le contenu"
+  fields:
+    level1:
+      name: "Level 1"
+      required: true
+      selector:
+        text:
+    level2:
+      name: "Level 2"
+      required: true
+      selector:
+        text:
+    level3:
+      name: "Level 3"
+      required: true
+      selector:
+        text:
