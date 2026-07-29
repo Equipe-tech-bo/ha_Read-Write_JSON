@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuration Hints Manager",
+        "data": {
+          "json_path": "Chemin du fichier JSON (ex: config/local/indices/hints.json)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Hints Manager",
+        "data": {
+          "json_path": "Chemin du fichier JSON"
+        }
+      }
+    }
+  }
+}
