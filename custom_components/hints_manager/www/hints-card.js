@@ -42,7 +42,15 @@ class HintsCard extends HTMLElement {
     this._level1Selected = value;
     this._level2Opened = null;
     this._level3Selected = null;
+    this._selectedContenue = null;
     this._render();
+
+    if (this._hass) {
+      await this._hass.callService("input_text", "set_value", {
+        entity_id: "input_text.hints_selected_indice_index",
+        value: "null",
+      });
+    }
   }
 
   _toggleLevel2(key) {
@@ -52,7 +60,15 @@ class HintsCard extends HTMLElement {
       this._level2Opened = key;
     }
     this._level3Selected = null;
+    this._selectedContenue = null;
     this._render();
+
+    if (this._hass) {
+      await this._hass.callService("input_text", "set_value", {
+        entity_id: "input_text.hints_selected_indice_index",
+        value: "null",
+      });
+    }
   }
 
   async _selectLevel3(level2Key, level3Key, indexValue, contenue) {
