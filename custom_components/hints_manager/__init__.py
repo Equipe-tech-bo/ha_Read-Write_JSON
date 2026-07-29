@@ -5,6 +5,7 @@ import asyncio
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.components import websocket_api
 
 from .const import DOMAIN, DEFAULT_JSON_PATH, INPUT_TEXT_SELECTED_INDEX
 
@@ -111,6 +112,31 @@ async def _json_writer(hass, json_path: str, queue: asyncio.Queue):
             queue.task_done()
 
 
+# ── WEBSOCKET COMMAND : hints_manager/get_all ──────────────────────────── #
+@websocket_api.websocket_command({"type": "hints_manager/get_all"})
+@websocket_api.async_response
+async def ws_get_all(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict):
+    """Renvoie l'intégralité du JSON pour la première entry configurée."""
+    domain_data = hass.data.get(DOMAIN, {})
+
+    entry_data = None
+    for key, value in domain_data.items():
+        if isinstance(value, dict) and "json_path" in value:
+            entry_data = value
+            break
+
+    if entry_data is None:
+        connection.send_error(msg["id"], "not_found", "Aucune configuration hints_manager active")
+        return
+
+    json_path = entry_data["json_path"]
+    write_queue = entry_data["write_queue"]
+
+    await write_queue.join()
+    data = await _async_load_json(hass, json_path)
+    connection.send_result(msg["id"], data)
+
+
 # ── SETUP ───────────────────────────────────────────────────────────────── #
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
@@ -140,6 +166,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "write_queue": write_queue,
         "writer_task": writer_task,
     }
+
+    # ── Enregistrement de la WebSocket command (une seule fois, même si plusieurs entries) ── #
+    if not hass.data[DOMAIN].get("_ws_registered"):
+        hass.components.websocket_api.async_register_command(ws_get_all)
+        hass.data[DOMAIN]["_ws_registered"] = True
 
     # ── SERVICE : get_tree (renvoie tout le JSON, utilisé par la carte) ── #
     async def handle_get_tree(call: ServiceCall):
