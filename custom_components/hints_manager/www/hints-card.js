@@ -252,10 +252,10 @@ class HintsCard extends HTMLElement {
 
   _escapeHtml(str) {
     return String(str)
-      .replace(/&/g, "&")
-      .replace(/"/g, """)
-      .replace(/</g, "<")
-      .replace(/>/g, ">");
+      .replace(/&/g, '&')
+      .replace(/"/g, '"')
+      .replace(/</g, '<')
+      .replace(/>/g, '>');
   }
 
   _attachEvents() {
