@@ -38,7 +38,7 @@ class HintsCard extends HTMLElement {
     this._render();
   }
 
-  _selectLevel1(value) {
+  async _selectLevel1(value) {
     this._level1Selected = value;
     this._level2Opened = null;
     this._level3Selected = null;
@@ -53,7 +53,7 @@ class HintsCard extends HTMLElement {
     }
   }
 
-  _toggleLevel2(key) {
+  async _toggleLevel2(key) {
     if (this._level2Opened === key) {
       this._level2Opened = null;
     } else {
