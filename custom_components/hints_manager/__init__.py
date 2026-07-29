@@ -169,7 +169,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ── Enregistrement de la WebSocket command (une seule fois, même si plusieurs entries) ── #
     if not hass.data[DOMAIN].get("_ws_registered"):
-        hass.components.websocket_api.async_register_command(ws_get_all)
+        websocket_api.async_register_command(hass, ws_get_all)
         hass.data[DOMAIN]["_ws_registered"] = True
 
     # ── SERVICE : get_tree (renvoie tout le JSON, utilisé par la carte) ── #
