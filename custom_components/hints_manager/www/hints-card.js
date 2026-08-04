@@ -16,7 +16,12 @@ class HintsCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._loadData();
+  
+    const now = Date.now();
+    if (!this._lastLoad || now - this._lastLoad > 3000) {
+      this._lastLoad = now;
+      this._loadData();
+    }
   }
 
   getCardSize() {
@@ -29,13 +34,16 @@ class HintsCard extends HTMLElement {
       const resp = await this._hass.callWS({
         type: "hints_manager/get_all",
       });
-      this._data = resp || {};
+      const newDataStr = JSON.stringify(resp || {});
+      const oldDataStr = JSON.stringify(this._data || {});
+  
+      if (newDataStr !== oldDataStr) {
+        this._data = resp || {};
+        this._render();
+      }
     } catch (e) {
-      // fallback : lecture via service + state si pas de websocket command custom
       console.warn("hints-card: impossible de charger via WS, fallback", e);
-      this._data = this._data || {};
     }
-    this._render();
   }
 
   async _selectLevel1(value) {
@@ -96,6 +104,11 @@ class HintsCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
+  
+    const activeEl = this.shadowRoot.activeElement;
+    if (activeEl && activeEl.tagName === "SELECT") {
+      return;
+    }
 
     const level1Keys = Object.keys(this._data || {});
     const level2Data =
