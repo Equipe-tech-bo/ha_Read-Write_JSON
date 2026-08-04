@@ -5,7 +5,9 @@ class HintsCard extends HTMLElement {
     this._level1Selected = null;
     this._level2Opened = null;
     this._level3Selected = null;
+    this._level1DropdownOpen = false;
     this._data = {};
+    this._lastLoad = 0;
   }
 
   setConfig(config) {
@@ -16,7 +18,7 @@ class HintsCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-  
+
     const now = Date.now();
     if (!this._lastLoad || now - this._lastLoad > 3000) {
       this._lastLoad = now;
@@ -36,7 +38,7 @@ class HintsCard extends HTMLElement {
       });
       const newDataStr = JSON.stringify(resp || {});
       const oldDataStr = JSON.stringify(this._data || {});
-  
+
       if (newDataStr !== oldDataStr) {
         this._data = resp || {};
         this._render();
@@ -102,13 +104,70 @@ class HintsCard extends HTMLElement {
     this._render();
   }
 
+  _renderLevel1Dropdown(level1Keys) {
+    return `
+      <div class="custom-select">
+        <div class="custom-select-selected" id="level1-selected-label">
+          <span>${this._level1Selected || "-- Sélectionner une énigme --"}</span>
+          <span class="dropdown-chevron ${this._level1DropdownOpen ? "opened" : ""}">▾</span>
+        </div>
+        <div class="custom-select-options ${this._level1DropdownOpen ? "open" : ""}" id="level1-options">
+          <div class="custom-select-option" data-value="">-- Sélectionner --</div>
+          ${level1Keys
+            .map(
+              (k) =>
+                `<div class="custom-select-option ${this._level1Selected === k ? "active" : ""}" data-value="${k}">${k}</div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderLevel2Block(l2key, l3Data) {
+    const isOpened = this._level2Opened === l2key;
+    return `
+      <div class="level2-block">
+        <button class="level2-btn ${isOpened ? "opened" : ""}" data-l2key="${l2key}">
+          <span>${l2key}</span>
+          <span class="chevron ${isOpened ? "opened" : ""}">›</span>
+        </button>
+        ${
+          isOpened
+            ? `<div class="level3-stack">
+                ${Object.keys(l3Data)
+                  .map((l3key) => {
+                    const item = l3Data[l3key];
+                    const isSelected = this._level3Selected === l3key;
+                    const safeContenue = this._escapeHtml(item.contenue || "");
+                    return `
+                      <button class="level3-btn ${isSelected ? "selected" : ""}"
+                        data-l2key="${l2key}"
+                        data-l3key="${l3key}"
+                        data-index="${item.index ?? ""}"
+                        data-contenue="${safeContenue}">
+                        ${l3key}
+                      </button>
+                    `;
+                  })
+                  .join("")}
+              </div>`
+            : ""
+        }
+      </div>
+    `;
+  }
+
+  _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&')
+      .replace(/"/g, '"')
+      .replace(/</g, '<')
+      .replace(/>/g, '>');
+  }
+
   _render() {
     if (!this.shadowRoot) return;
-  
-    const activeEl = this.shadowRoot.activeElement;
-    if (activeEl && activeEl.tagName === "SELECT") {
-      return;
-    }
 
     const level1Keys = Object.keys(this._data || {});
     const level2Data =
@@ -127,16 +186,64 @@ class HintsCard extends HTMLElement {
           margin-bottom: 12px;
           color: var(--primary-text-color);
         }
-        select {
-          width: 100%;
-          padding: 8px;
+
+        /* ── Dropdown custom (remplace <select>) ── */
+        .custom-select {
+          position: relative;
           margin-bottom: 16px;
+        }
+        .custom-select-selected {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 12px;
           border-radius: 8px;
           border: 1px solid var(--divider-color);
           background: var(--card-background-color);
           color: var(--primary-text-color);
+          cursor: pointer;
           font-size: 1em;
+          user-select: none;
         }
+        .dropdown-chevron {
+          transition: transform 0.2s;
+          font-size: 0.9em;
+          opacity: 0.7;
+        }
+        .dropdown-chevron.opened {
+          transform: rotate(180deg);
+        }
+        .custom-select-options {
+          display: none;
+          position: absolute;
+          top: calc(100% + 4px);
+          left: 0;
+          right: 0;
+          z-index: 10;
+          background: var(--card-background-color);
+          border: 1px solid var(--divider-color);
+          border-radius: 8px;
+          max-height: 220px;
+          overflow-y: auto;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .custom-select-options.open {
+          display: block;
+        }
+        .custom-select-option {
+          padding: 10px 12px;
+          cursor: pointer;
+          color: var(--primary-text-color);
+          font-size: 0.95em;
+        }
+        .custom-select-option:hover {
+          background: var(--secondary-background-color);
+        }
+        .custom-select-option.active {
+          background: var(--primary-color);
+          color: var(--text-primary-color, white);
+        }
+
         .level2-block {
           margin-bottom: 8px;
         }
@@ -219,15 +326,7 @@ class HintsCard extends HTMLElement {
       <ha-card>
         <div class="card-title">${this._title}</div>
 
-        <select id="level1-select">
-          <option value="" ${!this._level1Selected ? "selected" : ""}>-- Sélectionner --</option>
-          ${level1Keys
-            .map(
-              (k) =>
-                `<option value="${k}" ${this._level1Selected === k ? "selected" : ""}>${k}</option>`
-            )
-            .join("")}
-        </select>
+        ${this._renderLevel1Dropdown(level1Keys)}
 
         <div id="level2-container">
           ${
@@ -248,59 +347,46 @@ class HintsCard extends HTMLElement {
     this._attachEvents();
   }
 
-  _renderLevel2Block(l2key, level3Data) {
-    const isOpened = this._level2Opened === l2key;
-    return `
-      <div class="level2-block">
-        <button class="level2-btn ${isOpened ? "opened" : ""}" data-l2key="${l2key}">
-          <span>${l2key}</span>
-          <span class="chevron ${isOpened ? "opened" : ""}">▶</span>
-        </button>
-        ${
-          isOpened
-            ? `<div class="level3-stack">
-                ${Object.keys(level3Data)
-                  .map((l3key) => {
-                    const entry = level3Data[l3key];
-                    const isSelected = this._level3Selected === l3key;
-                    return `<button class="level3-btn ${isSelected ? "selected" : ""}"
-                              data-l2key="${l2key}"
-                              data-l3key="${l3key}"
-                              data-index="${entry.index}"
-                              data-contenue="${this._escapeHtml(entry.contenue || "")}">
-                              ${l3key}
-                            </button>`;
-                  })
-                  .join("")}
-              </div>`
-            : ""
-        }
-      </div>
-    `;
-  }
-
-  _escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&')
-      .replace(/"/g, '"')
-      .replace(/</g, '<')
-      .replace(/>/g, '>');
-  }
-
   _attachEvents() {
-    const select = this.shadowRoot.getElementById("level1-select");
-    if (select) {
-      select.addEventListener("change", (e) => {
-        this._selectLevel1(e.target.value || null);
+    // ── Dropdown custom niveau 1 ──
+    const selectedLabel = this.shadowRoot.getElementById("level1-selected-label");
+    const optionsBox = this.shadowRoot.getElementById("level1-options");
+
+    if (selectedLabel) {
+      selectedLabel.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._level1DropdownOpen = !this._level1DropdownOpen;
+        this._render();
       });
     }
 
+    if (optionsBox) {
+      optionsBox.querySelectorAll(".custom-select-option").forEach((opt) => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const value = e.currentTarget.dataset.value || null;
+          this._level1DropdownOpen = false;
+          this._selectLevel1(value);
+        });
+      });
+    }
+
+    // Ferme le dropdown si on clique en dehors (à l'intérieur du shadowRoot)
+    this.shadowRoot.addEventListener("click", () => {
+      if (this._level1DropdownOpen) {
+        this._level1DropdownOpen = false;
+        this._render();
+      }
+    });
+
+    // ── Boutons niveau 2 ──
     this.shadowRoot.querySelectorAll(".level2-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         this._toggleLevel2(e.currentTarget.dataset.l2key);
       });
     });
 
+    // ── Boutons niveau 3 ──
     this.shadowRoot.querySelectorAll(".level3-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const { l2key, l3key, index, contenue } = e.currentTarget.dataset;
