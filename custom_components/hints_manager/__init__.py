@@ -198,21 +198,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, "get_value", handle_get_value, supports_response="only"
     )
 
-    # ── SERVICE : set_value (écriture à un chemin donné) ─────────────────── #
+    # ── SERVICE : set_value (écriture à un chemin donné, avec nettoyage auto) ── #
     async def handle_set_value(call: ServiceCall):
-        level1 = call.data.get("level1", "").strip()
-        level2 = call.data.get("level2", "").strip()
-        level3 = call.data.get("level3", "").strip()
-        field = call.data.get("field", "").strip()  # ex: "contenue" ou "index"
-        value = call.data.get("value")
+        level1 = (call.data.get("level1") or "").strip()
+        level2 = (call.data.get("level2") or "").strip()
+        level3 = (call.data.get("level3") or "").strip()
+        contenue = call.data.get("contenue", None)
 
-        parts = [p for p in [level1, level2, level3, field] if p]
+        if not level1 or not level2 or not level3:
+            return {"success": False, "error": "level1, level2 et level3 sont requis"}
+
+        parts = [level1, level2, level3]
+
+        # Cas suppression : contenue vide/None -> payload = None (le writer supprimera et nettoiera)
+        if contenue is None or contenue == "":
+            future = hass.loop.create_future()
+            await write_queue.put((parts, None, future))
+            try:
+                await future
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+            await write_queue.join()
+            data = await _async_load_json(hass, json_path)
+            return {"success": True, "data": data}
+
+        # Cas écriture : on doit connaître l'index existant ou en calculer un nouveau
+        await write_queue.join()
+        current_data = await _async_load_json(hass, json_path)
+
+        existing_node = _get_nested(current_data, parts)
+        if isinstance(existing_node, dict) and "index" in existing_node:
+            index_value = existing_node["index"]
+        else:
+            level2_node = _get_nested(current_data, [level1, level2]) or {}
+            existing_indexes = [
+                v.get("index", -1) for v in level2_node.values() if isinstance(v, dict)
+            ]
+            index_value = (max(existing_indexes) + 1) if existing_indexes else 0
+
+        payload = {"index": index_value, "contenue": contenue}
 
         future = hass.loop.create_future()
-        await write_queue.put((parts, value, future))
-        await future
+        await write_queue.put((parts, payload, future))
+        try:
+            await future
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
-    hass.services.async_register(DOMAIN, "set_value", handle_set_value)
+        await write_queue.join()
+        data = await _async_load_json(hass, json_path)
+        return {"success": True, "data": data}
+
+    hass.services.async_register(
+        DOMAIN, "set_value", handle_set_value, supports_response="only"
+    )
 
     # ── SERVICE : select_indice (met à jour input_text + retourne le contenu) ── #
     async def handle_select_indice(call: ServiceCall):
