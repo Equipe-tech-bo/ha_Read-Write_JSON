@@ -161,21 +161,14 @@ class HintsEditorCard extends HTMLElement {
   
     _render() {
       if (!this.shadowRoot) return;
-  
-      // Préserve le focus / la position du curseur du textarea si actif
-      const activeIsTextarea =
-        this.shadowRoot.activeElement?.id === "contenue-textarea";
-      const cursorPos = activeIsTextarea
-        ? this.shadowRoot.getElementById("contenue-textarea").selectionStart
-        : null;
-  
-      const level1Options = this._getLevel1Options();
-      const level2Options = this._getLevel2Options();
-      const level3Options = this._getLevel3Options();
-  
-      const isNewIndice =
-        this._level3Value && this._originalContenue === null;
-  
+    
+      // Si déjà construit, on ne fait qu'une mise à jour ciblée
+      if (this.shadowRoot.getElementById("level1-input")) {
+        this._updateDynamicParts();
+        return;
+      }
+    
+      // Construction initiale UNE SEULE FOIS
       this.shadowRoot.innerHTML = `
         <style>
           ha-card { padding: 16px; }
@@ -270,90 +263,106 @@ class HintsEditorCard extends HTMLElement {
         </style>
         <ha-card>
           <div class="card-title">${this._title}</div>
-  
+
           <div class="field-group">
             <label for="level1-input">Énigme</label>
-            <input
-              type="text"
-              id="level1-input"
-              list="level1-list"
-              value="${this._escapeAttr(this._level1Value)}"
-              placeholder="Nom de l'énigme..."
-              autocomplete="off"
-            />
-            <datalist id="level1-list">
-              ${level1Options.map((o) => `<option value="${this._escapeAttr(o)}">`).join("")}
-            </datalist>
+            <input type="text" id="level1-input" list="level1-list" placeholder="Nom de l'énigme..." autocomplete="off" />
+            <datalist id="level1-list"></datalist>
           </div>
-  
+
           <div class="field-group">
             <label for="level2-input">Sous-catégorie</label>
-            <input
-              type="text"
-              id="level2-input"
-              list="level2-list"
-              value="${this._escapeAttr(this._level2Value)}"
-              placeholder="Nom de la sous-catégorie..."
-              autocomplete="off"
-              ${!this._level1Value ? "disabled" : ""}
-            />
-            <datalist id="level2-list">
-              ${level2Options.map((o) => `<option value="${this._escapeAttr(o)}">`).join("")}
-            </datalist>
+            <input type="text" id="level2-input" list="level2-list" placeholder="Nom de la sous-catégorie..." autocomplete="off" />
+            <datalist id="level2-list"></datalist>
           </div>
-  
+
           <div class="field-group">
             <label for="level3-input">
-              Indice
-              ${isNewIndice ? '<span class="new-badge">Nouveau</span>' : ""}
+              Indice <span class="new-badge" id="new-badge" style="display:none;">Nouveau</span>
             </label>
-            <input
-              type="text"
-              id="level3-input"
-              list="level3-list"
-              value="${this._escapeAttr(this._level3Value)}"
-              placeholder="Nom de l'indice..."
-              autocomplete="off"
-              ${!this._level2Value ? "disabled" : ""}
-            />
-            <datalist id="level3-list">
-              ${level3Options.map((o) => `<option value="${this._escapeAttr(o)}">`).join("")}
-            </datalist>
+            <input type="text" id="level3-input" list="level3-list" placeholder="Nom de l'indice..." autocomplete="off" />
+            <datalist id="level3-list"></datalist>
           </div>
-  
+
           <div class="field-group">
             <label for="contenue-textarea">Contenu de l'indice</label>
-            <textarea
-              id="contenue-textarea"
-              placeholder="${this._originalContenue === null ? "Entrer le contenu de votre indice" : ""}"
-              ${!this._level3Value ? "disabled" : ""}
-            >${this._escapeHtml(this._contenueValue)}</textarea>
+            <textarea id="contenue-textarea"></textarea>
           </div>
-  
-          <button class="validate-btn ${this._contenueValue.trim() === "" && this._originalContenue !== null ? "delete" : ""}" id="validate-btn">
-            ${
-              this._contenueValue.trim() === "" && this._originalContenue !== null
-                ? "🗑 Supprimer l'indice"
-                : "✔ Valider"
-            }
-          </button>
-  
-          ${
-            this._feedbackMsg
-              ? `<div class="feedback ${this._feedbackError ? "error" : "success"}">${this._escapeHtml(this._feedbackMsg)}</div>`
-              : ""
-          }
+
+          <button class="validate-btn" id="validate-btn">✔ Valider</button>
+
+          <div class="feedback" id="feedback" style="display:none;"></div>
         </ha-card>
       `;
-  
+
       this._attachEvents();
-  
-      // Restaure le focus/curseur du textarea après re-render
-      if (activeIsTextarea) {
-        const ta = this.shadowRoot.getElementById("contenue-textarea");
-        ta.focus();
-        ta.setSelectionRange(cursorPos, cursorPos);
+      this._updateDynamicParts();
+    }
+
+    _updateDynamicParts() {
+      const level1Options = this._getLevel1Options();
+      const level2Options = this._getLevel2Options();
+      const level3Options = this._getLevel3Options();
+      const isNewIndice = this._level3Value && this._originalContenue === null;
+
+      const l1 = this.shadowRoot.getElementById("level1-input");
+      const l2 = this.shadowRoot.getElementById("level2-input");
+      const l3 = this.shadowRoot.getElementById("level3-input");
+      const contenue = this.shadowRoot.getElementById("contenue-textarea");
+      const validateBtn = this.shadowRoot.getElementById("validate-btn");
+      const badge = this.shadowRoot.getElementById("new-badge");
+      const feedback = this.shadowRoot.getElementById("feedback");
+
+      // On ne touche à .value QUE si ce n'est pas l'élément actif en train d'être tapé
+      if (document.activeElement !== l1 && this.shadowRoot.activeElement !== l1) {
+        l1.value = this._level1Value;
       }
+      if (this.shadowRoot.activeElement !== l2) {
+        l2.value = this._level2Value;
+      }
+      if (this.shadowRoot.activeElement !== l3) {
+        l3.value = this._level3Value;
+      }
+      if (this.shadowRoot.activeElement !== contenue) {
+        contenue.value = this._contenueValue;
+      }
+
+      l2.disabled = !this._level1Value;
+      l3.disabled = !this._level2Value;
+      contenue.disabled = !this._level3Value;
+      contenue.placeholder = this._originalContenue === null ? "Entrer le contenu de votre indice" : "";
+
+      badge.style.display = isNewIndice ? "inline-block" : "none";
+
+      // Mise à jour des datalists SEULEMENT si les options ont changé
+      this._updateDatalist("level1-list", level1Options);
+      this._updateDatalist("level2-list", level2Options);
+      this._updateDatalist("level3-list", level3Options);
+
+      const isDelete = this._contenueValue.trim() === "" && this._originalContenue !== null;
+      validateBtn.textContent = isDelete ? "🗑 Supprimer l'indice" : "✔ Valider";
+      validateBtn.className = "validate-btn" + (isDelete ? " delete" : "");
+
+      if (this._feedbackMsg) {
+        feedback.style.display = "block";
+        feedback.textContent = this._feedbackMsg;
+        feedback.className = "feedback " + (this._feedbackError ? "error" : "success");
+      } else {
+        feedback.style.display = "none";
+      }
+    }
+
+    _updateDatalist(id, options) {
+      const datalist = this.shadowRoot.getElementById(id);
+      const currentOptions = Array.from(datalist.options).map((o) => o.value);
+      const same =
+        currentOptions.length === options.length &&
+        currentOptions.every((v, i) => v === options[i]);
+      if (same) return; // évite de toucher au DOM si rien n'a changé
+
+      datalist.innerHTML = options
+        .map((o) => `<option value="${this._escapeAttr(o)}">`)
+        .join("");
     }
   
     _attachEvents() {
