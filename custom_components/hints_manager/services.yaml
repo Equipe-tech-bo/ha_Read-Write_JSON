@@ -23,34 +23,31 @@ get_value:
         text:
 
 set_value:
-  name: "Écrire une valeur"
-  description: "Écrit une valeur à un chemin donné"
+  name: "Écrire/supprimer un indice"
+  description: "Écrit ou supprime un indice à un chemin donné, avec nettoyage automatique des branches vides"
   fields:
     level1:
-      name: "Level 1"
-      required: false
+      name: "Level 1 (énigme)"
+      required: true
       selector:
         text:
     level2:
-      name: "Level 2"
-      required: false
+      name: "Level 2 (sous-catégorie)"
+      required: true
       selector:
         text:
     level3:
-      name: "Level 3"
-      required: false
+      name: "Level 3 (indice)"
+      required: true
       selector:
         text:
-    field:
-      name: "Champ (index/contenue)"
+    contenue:
+      name: "Contenu de l'indice"
       required: false
+      description: "Laisser vide pour supprimer l'indice"
       selector:
         text:
-    value:
-      name: "Valeur"
-      required: false
-      selector:
-        text:
+          multiline: true
 
 select_indice:
   name: "Sélectionner un indice"
